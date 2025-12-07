@@ -5,14 +5,14 @@ WORKDIR /app
 
 # 安裝依賴
 COPY package*.json ./
-RUN npm ci --only=production=false
+RUN npm install
 
 # 複製原始碼並建置
 COPY . .
 RUN npm run build
 
 # 移除開發依賴
-RUN npm prune --production
+RUN npm prune --omit=dev
 
 # 階段 2: 生產映像
 FROM node:18-alpine AS production
