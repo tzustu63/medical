@@ -25,7 +25,8 @@ import { SystemModule } from './modules/system/system.module';
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: configService.get<string>('NODE_ENV') === 'development',
+        synchronize: configService.get<string>('NODE_ENV') === 'development' || 
+                     configService.get<string>('DB_SYNC') === 'true',
         logging: configService.get<string>('NODE_ENV') === 'development',
       }),
     }),
