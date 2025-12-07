@@ -33,7 +33,7 @@ check_all_ports() {
     log_step "檢查端口可用性..."
     local all_clear=true
     
-    for port in 3003 5004 5435 6381; do
+    for port in 3004 5005 5436 6382; do
         if ! check_port $port; then
             all_clear=false
         fi
@@ -113,15 +113,15 @@ health_check() {
     sleep 30
     
     # 檢查 API
-    if curl -sf http://localhost:5004/api/v1/system/health > /dev/null 2>&1; then
-        log_info "✅ API 健康檢查通過 (Port 5004)"
+    if curl -sf http://localhost:5005/api/v1/system/health > /dev/null 2>&1; then
+        log_info "✅ API 健康檢查通過 (Port 5005)"
     else
         log_warn "⚠️ API 健康檢查失敗"
     fi
     
     # 檢查前端
-    if curl -sf http://localhost:3003 > /dev/null 2>&1; then
-        log_info "✅ 前端健康檢查通過 (Port 3003)"
+    if curl -sf http://localhost:3004 > /dev/null 2>&1; then
+        log_info "✅ 前端健康檢查通過 (Port 3004)"
     else
         log_warn "⚠️ 前端健康檢查失敗"
     fi
@@ -134,10 +134,10 @@ status() {
     
     echo ""
     log_info "端口使用情況："
-    echo "  - 前端: http://$(hostname -I | awk '{print $1}'):3003"
-    echo "  - API:  http://$(hostname -I | awk '{print $1}'):5004"
-    echo "  - PostgreSQL: localhost:5435"
-    echo "  - Redis: localhost:6381"
+    echo "  - 前端: http://$(hostname -I | awk '{print $1}'):3004"
+    echo "  - API:  http://$(hostname -I | awk '{print $1}'):5005"
+    echo "  - PostgreSQL: localhost:5436"
+    echo "  - Redis: localhost:6382"
 }
 
 # 顯示日誌
