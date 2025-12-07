@@ -1,0 +1,81 @@
+name: Deploy to Lightsail
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '部署環境'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  deploy:
+    name: Deploy to AWS Lightsail
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail_key
+          chmod 600 ~/.ssh/lightsail_key
+          cat >> ~/.ssh/config << EOF
+          Host lightsail
+            HostName ${{ secrets.LIGHTSAIL_HOST }}
+            User ${{ secrets.LIGHTSAIL_USER }}
+            IdentityFile ~/.ssh/lightsail_key
+            StrictHostKeyChecking no
+          EOF
+
+      - name: Deploy to Server
+        run: |
+          ssh lightsail << 'ENDSSH'
+            cd /home/ubuntu/medical-platform
+            
+            # 拉取最新程式碼
+            git fetch origin
+            git pull origin main
+            
+            # 使用 Lightsail 專用配置重新建置並部署
+            docker compose -f docker-compose.lightsail.yml build --no-cache
+            docker compose -f docker-compose.lightsail.yml down
+            docker compose -f docker-compose.lightsail.yml up -d
+            
+            # 清理舊映像
+            docker image prune -f
+            
+            # 等待服務啟動
+            sleep 30
+            
+            # 健康檢查 (Port 5004)
+            curl -sf http://localhost:5004/api/v1/system/health || echo "API Health check warning"
+            curl -sf http://localhost:3003 || echo "Frontend Health check warning"
+          ENDSSH
+
+      - name: Verify Deployment
+        run: |
+          ssh lightsail "docker compose -f /home/ubuntu/medical-platform/docker-compose.lightsail.yml ps"
+
+      - name: Notify Success
+        if: success()
+        run: echo "✅ 部署成功！"
+
+      - name: Notify Failure
+        if: failure()
+        run: echo "❌ 部署失敗！請檢查日誌"
+

@@ -1,0 +1,1272 @@
+openapi: 3.0.3
+info:
+  title: 全國偏鄉醫事人力需求平台 API
+  description: |
+    此API用於管理偏鄉醫療人力需求與支援配對系統。
+    
+    **主要功能：**
+    - 醫事人員註冊與管理個人檔案
+    - 醫院發布職缺需求
+    - 職缺搜尋與篩選
+    - 申請與媒合管理
+    
+    **用戶角色：**
+    - 醫事人員（Healthcare Professional）
+    - 醫療機構管理員（Hospital Admin）
+    - 系統管理員（System Admin）
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@medical-platform.tw
+
+servers:
+  - url: https://api.medical-support.tw/v1
+    description: 正式環境
+  - url: https://staging-api.medical-support.tw/v1
+    description: 測試環境
+
+tags:
+  - name: 認證
+    description: 用戶認證相關操作
+  - name: 醫事人員
+    description: 醫事人員個人檔案管理
+  - name: 職缺管理
+    description: 醫院職缺發布與管理
+  - name: 職缺搜尋
+    description: 職缺搜尋與篩選
+  - name: 申請管理
+    description: 職缺申請與媒合
+  - name: 系統參數
+    description: 系統選項與參數設定
+
+paths:
+  # ==================== 認證相關 ====================
+  /auth/register:
+    post:
+      tags:
+        - 認證
+      summary: 用戶註冊
+      description: 註冊新用戶（醫事人員或醫院管理員）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - userType
+                - name
+                - phone
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "doctor@example.com"
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: "SecurePass123!"
+                userType:
+                  type: string
+                  enum: [healthcare_professional, hospital_admin]
+                  example: "healthcare_professional"
+                name:
+                  type: string
+                  example: "王大明"
+                phone:
+                  type: string
+                  pattern: '^\d{10}$'
+                  example: "0912345678"
+                idNumber:
+                  type: string
+                  description: 身分證字號（醫事人員必填）
+                  example: "A123456789"
+                licenseNumber:
+                  type: string
+                  description: 執照字號（醫事人員必填）
+                  example: "醫字第123456號"
+                hospitalId:
+                  type: string
+                  description: 醫院代碼（醫院管理員必填）
+                  example: "HOSP001"
+      responses:
+        '201':
+          description: 註冊成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "註冊成功，請查收驗證郵件"
+                  userId:
+                    type: string
+                    example: "user_123456"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: 郵箱已被註冊
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags:
+        - 認證
+      summary: 用戶登入
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: 登入成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  refreshToken:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags:
+        - 認證
+      summary: 刷新存取令牌
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: 令牌刷新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  refreshToken:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags:
+        - 認證
+      summary: 用戶登出
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 登出成功
+
+  # ==================== 醫事人員管理 ====================
+  /professionals/profile:
+    get:
+      tags:
+        - 醫事人員
+      summary: 取得個人檔案
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功取得個人檔案
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfessionalProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags:
+        - 醫事人員
+      summary: 更新個人檔案
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfessionalProfileUpdate'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfessionalProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /professionals/availability:
+    post:
+      tags:
+        - 醫事人員
+      summary: 設定可支援時段
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                availableDays:
+                  type: array
+                  items:
+                    type: string
+                    enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+                  example: ["monday", "wednesday", "friday"]
+                availableRegions:
+                  type: array
+                  items:
+                    type: string
+                  example: ["屏東縣", "台東縣"]
+                startDate:
+                  type: string
+                  format: date
+                  example: "2024-01-01"
+                endDate:
+                  type: string
+                  format: date
+                  example: "2024-12-31"
+      responses:
+        '200':
+          description: 設定成功
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==================== 職缺管理 ====================
+  /jobs:
+    get:
+      tags:
+        - 職缺搜尋
+      summary: 搜尋職缺列表
+      description: 根據條件篩選職缺
+      parameters:
+        - name: county
+          in: query
+          description: 縣市
+          schema:
+            type: string
+            example: "屏東縣"
+        - name: township
+          in: query
+          description: 鄉鎮市
+          schema:
+            type: string
+            example: "來義鄉"
+        - name: hospitalName
+          in: query
+          description: 醫事機構名稱
+          schema:
+            type: string
+        - name: professionalType
+          in: query
+          description: 人員類別
+          schema:
+            type: string
+            enum: [doctor, nurse, registered_nurse, pharmacist, pharmacy_technician, medical_technologist, medical_laboratory_technician]
+        - name: specialty
+          in: query
+          description: 專科需求
+          schema:
+            type: string
+            example: "內科"
+        - name: serviceType
+          in: query
+          description: 服務項目
+          schema:
+            type: string
+            enum: [outpatient, inpatient, emergency, other]
+        - name: weekday
+          in: query
+          description: 服務時段
+          schema:
+            type: string
+            enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        - name: publicFundedOnly
+          in: query
+          description: 僅顯示公費醫師職缺
+          schema:
+            type: boolean
+        - name: startDate
+          in: query
+          description: 服務起始日（篩選此日期之後的職缺）
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            enum: [10, 20, 50]
+      responses:
+        '200':
+          description: 成功取得職缺列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JobPosting'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - 職缺管理
+      summary: 發布新職缺
+      description: 醫院管理員發布職缺需求
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobPostingCreate'
+      responses:
+        '201':
+          description: 職缺發布成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  jobId:
+                    type: string
+                    example: "job_123456"
+                  data:
+                    $ref: '#/components/schemas/JobPosting'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /jobs/{jobId}:
+    get:
+      tags:
+        - 職缺搜尋
+      summary: 取得職缺詳細資訊
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功取得職缺資訊
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPosting'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - 職缺管理
+      summary: 更新職缺資訊
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobPostingUpdate'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPosting'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - 職缺管理
+      summary: 刪除職缺
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 刪除成功
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /jobs/{jobId}/close:
+    post:
+      tags:
+        - 職缺管理
+      summary: 關閉職缺
+      description: 標記職缺為已關閉（不再接受申請）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 職缺已關閉
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ==================== 申請管理 ====================
+  /applications:
+    get:
+      tags:
+        - 申請管理
+      summary: 取得申請列表
+      description: 根據用戶角色顯示相關申請（醫事人員看自己的申請，醫院看收到的申請）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected, cancelled]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 成功取得申請列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Application'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - 申請管理
+      summary: 申請職缺
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jobId
+              properties:
+                jobId:
+                  type: string
+                  example: "job_123456"
+                coverLetter:
+                  type: string
+                  description: 申請說明
+                  example: "本人有5年內科經驗，願意支援偏鄉醫療..."
+                availableStartDate:
+                  type: string
+                  format: date
+                  example: "2024-03-01"
+      responses:
+        '201':
+          description: 申請成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  applicationId:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Application'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: 已申請過此職缺
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /applications/{applicationId}:
+    get:
+      tags:
+        - 申請管理
+      summary: 取得申請詳情
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功取得申請詳情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - 申請管理
+      summary: 取消申請
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 申請已取消
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 無法取消已審核的申請
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /applications/{applicationId}/review:
+    post:
+      tags:
+        - 申請管理
+      summary: 審核申請
+      description: 醫院管理員審核醫事人員的申請
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [approved, rejected]
+                  example: "approved"
+                reviewNote:
+                  type: string
+                  example: "符合需求，歡迎加入"
+      responses:
+        '200':
+          description: 審核完成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==================== 系統參數 ====================
+  /system/regions:
+    get:
+      tags:
+        - 系統參數
+      summary: 取得縣市鄉鎮列表
+      responses:
+        '200':
+          description: 成功取得地區列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        county:
+                          type: string
+                          example: "屏東縣"
+                        townships:
+                          type: array
+                          items:
+                            type: string
+                          example: ["屏東市", "潮州鎮", "來義鄉"]
+
+  /system/specialties:
+    get:
+      tags:
+        - 系統參數
+      summary: 取得專科列表
+      parameters:
+        - name: professionalType
+          in: query
+          description: 人員類別（篩選相關專科）
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功取得專科列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                          example: "內科"
+                        category:
+                          type: string
+                          example: "醫師"
+
+  /system/hospitals:
+    get:
+      tags:
+        - 系統參數
+      summary: 取得醫療機構列表
+      parameters:
+        - name: county
+          in: query
+          schema:
+            type: string
+        - name: township
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: 搜尋醫院名稱
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功取得醫院列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Hospital'
+
+# ==================== 資料模型定義 ====================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # 用戶相關
+    UserProfile:
+      type: object
+      properties:
+        userId:
+          type: string
+          example: "user_123456"
+        email:
+          type: string
+          format: email
+        userType:
+          type: string
+          enum: [healthcare_professional, hospital_admin, system_admin]
+        name:
+          type: string
+        phone:
+          type: string
+        isVerified:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    # 醫事人員檔案
+    ProfessionalProfile:
+      type: object
+      properties:
+        userId:
+          type: string
+        name:
+          type: string
+          example: "王大明"
+        email:
+          type: string
+        phone:
+          type: string
+          example: "0912345678"
+        idNumber:
+          type: string
+          example: "A123456789"
+        professionalType:
+          type: string
+          enum: [doctor, nurse, registered_nurse, pharmacist, pharmacy_technician, medical_technologist, medical_laboratory_technician]
+          example: "doctor"
+        licenseNumber:
+          type: string
+          example: "醫字第123456號"
+        specialties:
+          type: array
+          items:
+            type: string
+          example: ["內科", "家醫科"]
+        yearsOfExperience:
+          type: integer
+          example: 5
+        currentHospital:
+          type: string
+          example: "台北市立醫院"
+        availableForSupport:
+          type: boolean
+          example: true
+        availableRegions:
+          type: array
+          items:
+            type: string
+          example: ["屏東縣", "台東縣"]
+        availableDays:
+          type: array
+          items:
+            type: string
+            enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        bio:
+          type: string
+          description: 個人簡介
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProfessionalProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        specialties:
+          type: array
+          items:
+            type: string
+        yearsOfExperience:
+          type: integer
+        currentHospital:
+          type: string
+        availableForSupport:
+          type: boolean
+        availableRegions:
+          type: array
+          items:
+            type: string
+        availableDays:
+          type: array
+          items:
+            type: string
+        bio:
+          type: string
+
+    # 職缺相關
+    JobPosting:
+      type: object
+      properties:
+        jobId:
+          type: string
+          example: "job_123456"
+        hospital:
+          $ref: '#/components/schemas/Hospital'
+        county:
+          type: string
+          example: "屏東縣"
+        township:
+          type: string
+          example: "來義鄉"
+        professionalType:
+          type: string
+          enum: [doctor, nurse, registered_nurse, pharmacist, pharmacy_technician, medical_technologist, medical_laboratory_technician]
+          example: "doctor"
+        specialty:
+          type: string
+          example: "內科"
+        numberOfPositions:
+          type: integer
+          minimum: 1
+          example: 1
+        jobType:
+          type: string
+          enum: [support, permanent]
+          example: "support"
+        serviceType:
+          type: string
+          enum: [outpatient, inpatient, emergency, other]
+          example: "outpatient"
+        serviceDays:
+          type: array
+          items:
+            type: string
+            enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+          example: ["friday"]
+        serviceStartDate:
+          type: string
+          format: date
+          example: "2024-03-13"
+        serviceEndDate:
+          type: string
+          format: date
+          example: "2024-12-31"
+        isPublicFunded:
+          type: boolean
+          description: 是否為公費醫師職缺
+          example: false
+        mealProvided:
+          type: boolean
+          example: false
+        accommodationProvided:
+          type: boolean
+          example: false
+        transportationProvided:
+          type: boolean
+          example: false
+        salary:
+          type: object
+          properties:
+            amount:
+              type: number
+              example: 5000
+            currency:
+              type: string
+              example: "TWD"
+            unit:
+              type: string
+              enum: [hourly, daily, monthly]
+              example: "daily"
+        contactInfo:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "陳娸華"
+            phone:
+              type: string
+              example: "08-7665995#7221"
+            email:
+              type: string
+              example: "p5023@mail.paochien.com.tw"
+        remarks:
+          type: string
+          description: 備註
+        status:
+          type: string
+          enum: [open, closed, filled]
+          example: "open"
+        applicationsCount:
+          type: integer
+          description: 申請人數
+          example: 3
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    JobPostingCreate:
+      type: object
+      required:
+        - county
+        - township
+        - professionalType
+        - numberOfPositions
+        - serviceStartDate
+        - serviceEndDate
+        - serviceDays
+      properties:
+        county:
+          type: string
+        township:
+          type: string
+        professionalType:
+          type: string
+          enum: [doctor, nurse, registered_nurse, pharmacist, pharmacy_technician, medical_technologist, medical_laboratory_technician]
+        specialty:
+          type: string
+        numberOfPositions:
+          type: integer
+          minimum: 1
+        jobType:
+          type: string
+          enum: [support, permanent]
+          default: "support"
+        serviceType:
+          type: string
+          enum: [outpatient, inpatient, emergency, other]
+        serviceDays:
+          type: array
+          items:
+            type: string
+            enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        serviceStartDate:
+          type: string
+          format: date
+        serviceEndDate:
+          type: string
+          format: date
+        isPublicFunded:
+          type: boolean
+          default: false
+        mealProvided:
+          type: boolean
+          default: false
+        accommodationProvided:
+          type: boolean
+          default: false
+        transportationProvided:
+          type: boolean
+          default: false
+        salary:
+          type: object
+          properties:
+            amount:
+              type: number
+            currency:
+              type: string
+              default: "TWD"
+            unit:
+              type: string
+              enum: [hourly, daily, monthly]
+        contactInfo:
+          type: object
+          required:
+            - name
+            - phone
+          properties:
+            name:
+              type: string
+            phone:
+              type: string
+            email:
+              type: string
+        remarks:
+          type: string
+
+    JobPostingUpdate:
+      type: object
+      properties:
+        specialty:
+          type: string
+        numberOfPositions:
+          type: integer
+        serviceType:
+          type: string
+        serviceDays:
+          type: array
+          items:
+            type: string
+        serviceStartDate:
+          type: string
+          format: date
+        serviceEndDate:
+          type: string
+          format: date
+        mealProvided:
+          type: boolean
+        accommodationProvided:
+          type: boolean
+        transportationProvided:
+          type: boolean
+        salary:
+          type: object
+        contactInfo:
+          type: object
+        remarks:
+          type: string
+
+    # 醫院
+    Hospital:
+      type: object
+      properties:
+        hospitalId:
+          type: string
+          example: "HOSP001"
+        name:
+          type: string
+          example: "寶建醫療社團法人寶建醫院"
+        county:
+          type: string
+          example: "屏東縣"
+        township:
+          type: string
+          example: "來義鄉"
+        address:
+          type: string
+        phone:
+          type: string
+        type:
+          type: string
+          enum: [medical_center, regional_hospital, district_hospital, clinic]
+          description: 醫院層級
+
+    # 申請
+    Application:
+      type: object
+      properties:
+        applicationId:
+          type: string
+          example: "app_123456"
+        job:
+          $ref: '#/components/schemas/JobPosting'
+        professional:
+          type: object
+          properties:
+            userId:
+              type: string
+            name:
+              type: string
+            professionalType:
+              type: string
+            specialties:
+              type: array
+              items:
+                type: string
+            yearsOfExperience:
+              type: integer
+        coverLetter:
+          type: string
+        availableStartDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [pending, approved, rejected, cancelled]
+          example: "pending"
+        reviewNote:
+          type: string
+          description: 審核備註
+        appliedAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: string
+          format: date-time
+        reviewedBy:
+          type: string
+          description: 審核者ID
+
+    # 分頁
+    Pagination:
+      type: object
+      properties:
+        currentPage:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 10
+        totalItems:
+          type: integer
+          example: 95
+        itemsPerPage:
+          type: integer
+          example: 10
+        hasNextPage:
+          type: boolean
+          example: true
+        hasPreviousPage:
+          type: boolean
+          example: false
+
+    # 錯誤訊息
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              example: "請求參數驗證失敗"
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+
+  responses:
+    BadRequest:
+      description: 請求參數錯誤
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    Unauthorized:
+      description: 未授權或令牌無效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    Forbidden:
+      description: 無權限執行此操作
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    NotFound:
+      description: 資源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

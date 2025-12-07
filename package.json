@@ -1,0 +1,31 @@
+{
+  "name": "medical-support-platform",
+  "version": "1.0.0",
+  "description": "全國偏鄉醫事人力需求平台",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "mobile"
+  ],
+  "scripts": {
+    "backend:dev": "npm run start:dev -w backend",
+    "backend:build": "npm run build -w backend",
+    "mobile:start": "npm run start -w mobile",
+    "mobile:ios": "npm run ios -w mobile",
+    "mobile:android": "npm run android -w mobile",
+    "db:migrate": "npm run migration:run -w backend",
+    "db:seed": "npm run seed -w backend",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "keywords": [
+    "medical",
+    "healthcare",
+    "platform",
+    "react-native",
+    "nestjs"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+

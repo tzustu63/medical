@@ -1,0 +1,45 @@
+# 階段 1: 建置
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# 安裝依賴
+COPY package*.json ./
+RUN npm ci --only=production=false
+
+# 複製原始碼並建置
+COPY . .
+RUN npm run build
+
+# 移除開發依賴
+RUN npm prune --production
+
+# 階段 2: 生產映像
+FROM node:18-alpine AS production
+
+# 設定環境變數
+ENV NODE_ENV=production
+ENV PORT=3000
+
+WORKDIR /app
+
+# 建立非 root 用戶
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001
+
+# 只複製必要檔案
+COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/package.json ./
+
+# 切換到非 root 用戶
+USER nestjs
+
+EXPOSE 3000
+
+# 健康檢查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/system/health || exit 1
+
+CMD ["node", "dist/main"]
+
