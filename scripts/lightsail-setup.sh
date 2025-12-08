@@ -156,3 +156,4 @@ echo "  ./scripts/deploy.sh status  - 查看狀態"
 echo "  ./scripts/deploy.sh logs    - 查看日誌"
 echo ""
 
+
