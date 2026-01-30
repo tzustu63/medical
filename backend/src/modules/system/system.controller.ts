@@ -8,6 +8,16 @@ import { SystemService } from './system.service';
 export class SystemController {
   constructor(private readonly systemService: SystemService) {}
 
+  @Get('health')
+  @ApiOperation({ summary: '健康檢查' })
+  @ApiResponse({ status: 200, description: '服務正常運行' })
+  async healthCheck() {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Get('regions')
   @ApiOperation({ summary: '取得縣市鄉鎮列表' })
   @ApiResponse({ status: 200, description: '成功取得地區列表' })
